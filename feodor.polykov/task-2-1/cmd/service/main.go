@@ -4,9 +4,8 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
-	"strconv"
-	"strings"
 )
 
 const (
@@ -18,124 +17,101 @@ var ErrUnknownOperator = errors.New("unknown operator")
 
 func main() {
 	if err := run(); err != nil {
-		fmt.Printf("Execution error: %v\n", err)
+		fmt.Fprintln(os.Stderr, "Execution error:", err)
 		os.Exit(1)
 	}
 }
 
 func run() error {
-	scanner := bufio.NewScanner(os.Stdin)
+	reader := bufio.NewReader(os.Stdin)
 
-	departments, err := readInt(scanner)
+	var departments int
+
+	_, err := fmt.Fscan(reader, &departments)
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
 		return fmt.Errorf("failed to read number of departments: %w", err)
 	}
 
-	employees, err := readInt(scanner)
+	var employees int
+
+	_, err = fmt.Fscan(reader, &employees)
 	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil
+		}
+
 		return fmt.Errorf("failed to read number of employees: %w", err)
 	}
 
-	for departmentIndex := 0; departmentIndex < departments; departmentIndex++ {
-		if err := processDepartment(scanner, employees); err != nil {
-			return fmt.Errorf("error in department %d: %w", departmentIndex+1, err)
+	for i := 0; i < departments; i++ {
+		if err := processDepartment(reader, employees); err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+
+			return fmt.Errorf("error in department %d: %w", i+1, err)
 		}
 	}
 
 	return nil
 }
 
-func readInt(scanner *bufio.Scanner) (int, error) {
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		if line == "" {
-			continue
-		}
-
-		val, err := strconv.Atoi(line)
-		if err != nil {
-			return 0, fmt.Errorf("invalid integer: %w", err)
-		}
-
-		return val, nil
-	}
-
-	if err := scanner.Err(); err != nil {
-		return 0, fmt.Errorf("scanner error: %w", err)
-	}
-
-	return 0, errors.New("unexpected end of input")
-}
-
-func processDepartment(scanner *bufio.Scanner, employees int) error {
+func processDepartment(reader *bufio.Reader, employees int) error {
 	low := MinTemp
 	high := MaxTemp
 
-	for employeeIndex := 0; employeeIndex < employees; employeeIndex++ {
-		var operator string
+	for i := 0; i < employees; i++ {
+		var op string
 
-		var value int
+		var val int
 
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" {
-				continue
+		_, err := fmt.Fscan(reader, &op, &val)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
 			}
 
-			var err error
-
-			operator, value, err = parseConstraint(line)
-			if err != nil {
-				return fmt.Errorf("failed to parse preference: %w", err)
-			}
-
-			break
+			return fmt.Errorf("failed to read preference: %w", err)
 		}
 
-		switch operator {
-		case ">=":
-			if value > low {
-				low = value
-			}
-		case "<=":
-			if value < high {
-				high = value
-			}
-		default:
-			return fmt.Errorf("%w: '%s'", ErrUnknownOperator, operator)
+		if err := updateBounds(op, val, &low, &high); err != nil {
+			return err
 		}
 
-		switch {
-		case low > high:
-			fmt.Println("-1")
-		case operator == ">=":
-			fmt.Println(low)
-		default:
-			fmt.Println(high)
-		}
+		printResult(op, low, high)
 	}
 
 	return nil
 }
 
-func parseConstraint(line string) (string, int, error) {
-	if strings.HasPrefix(line, ">=") {
-		val, err := strconv.Atoi(strings.TrimSpace(line[2:]))
-		if err != nil {
-			return "", 0, fmt.Errorf("invalid integer in '%s': %w", line, err)
+func updateBounds(op string, val int, low *int, high *int) error {
+	switch op {
+	case ">=":
+		if val > *low {
+			*low = val
 		}
-
-		return ">=", val, nil
+	case "<=":
+		if val < *high {
+			*high = val
+		}
+	default:
+		return fmt.Errorf("%w: '%s'", ErrUnknownOperator, op)
 	}
 
-	if strings.HasPrefix(line, "<=") {
-		val, err := strconv.Atoi(strings.TrimSpace(line[2:]))
-		if err != nil {
-			return "", 0, fmt.Errorf("invalid integer in '%s': %w", line, err)
-		}
+	return nil
+}
 
-		return "<=", val, nil
+func printResult(op string, low int, high int) {
+	switch {
+	case low > high:
+		fmt.Println("-1")
+	case op == ">=":
+		fmt.Println(low)
+	default:
+		fmt.Println(high)
 	}
-
-	return "", 0, fmt.Errorf("unknown operator: %s", line)
 }
