@@ -1,16 +1,18 @@
 package main
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
 	"os"
-	"strconv"
-	"strings"
 )
 
 const (
 	MinTemp = 15
 	MaxTemp = 30
+)
+
+var (
+	ErrUnknownOperator = errors.New("unknown operator")
 )
 
 func main() {
@@ -21,20 +23,18 @@ func main() {
 }
 
 func run() error {
-	scanner := bufio.NewScanner(os.Stdin)
+	var departments, employees int
 
-	departments, err := readNumber(scanner)
-	if err != nil {
+	if _, err := fmt.Scan(&departments); err != nil {
 		return fmt.Errorf("failed to read number of departments: %w", err)
 	}
 
-	employees, err := readNumber(scanner)
-	if err != nil {
+	if _, err := fmt.Scan(&employees); err != nil {
 		return fmt.Errorf("failed to read number of employees: %w", err)
 	}
 
 	for i := 0; i < departments; i++ {
-		if err := processDepartment(scanner, employees); err != nil {
+		if err := processDepartment(employees); err != nil {
 			return fmt.Errorf("error in department %d: %w", i+1, err)
 		}
 	}
@@ -42,62 +42,19 @@ func run() error {
 	return nil
 }
 
-func readNumber(scanner *bufio.Scanner) (int, error) {
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return 0, err
-		}
-		return 0, fmt.Errorf("unexpected end of input")
-	}
-
-	line := strings.TrimSpace(scanner.Text())
-	if line == "" {
-		return 0, fmt.Errorf("empty string instead of number")
-	}
-
-	num, err := strconv.Atoi(line)
-	if err != nil {
-		return 0, fmt.Errorf("invalid number: '%s'", line)
-	}
-
-	return num, nil
-}
-
-func readBound(scanner *bufio.Scanner) (string, int, error) {
-	if !scanner.Scan() {
-		if err := scanner.Err(); err != nil {
-			return "", 0, err
-		}
-		return "", 0, fmt.Errorf("unexpected end of input")
-	}
-
-	line := strings.TrimSpace(scanner.Text())
-	parts := strings.Fields(line)
-
-	if len(parts) != 2 {
-		return "", 0, fmt.Errorf("invalid string format: '%s', expected 'sign number'", line)
-	}
-
-	op := parts[0]
-	val, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return "", 0, fmt.Errorf("invalid temperature value: '%s'", parts[1])
-	}
-
-	return op, val, nil
-}
-
-func processDepartment(scanner *bufio.Scanner, employees int) error {
+func processDepartment(employees int) error {
 	low := MinTemp
 	high := MaxTemp
 
 	for j := 0; j < employees; j++ {
-		op, val, err := readBound(scanner)
-		if err != nil {
+		var operator string
+		var val int
+
+		if _, err := fmt.Scan(&operator, &val); err != nil {
 			return fmt.Errorf("error reading employee %d preference: %w", j+1, err)
 		}
 
-		switch op {
+		switch operator {
 		case ">=":
 			if val > low {
 				low = val
@@ -107,13 +64,13 @@ func processDepartment(scanner *bufio.Scanner, employees int) error {
 				high = val
 			}
 		default:
-			return fmt.Errorf("unknown operator '%s', expected '>=' or '<='", op)
+			return fmt.Errorf("%w: '%s', expected '>=' or '<='", ErrUnknownOperator, operator)
 		}
 
 		if low > high {
 			fmt.Println("-1")
 		} else {
-			if op == ">=" {
+			if operator == ">=" {
 				fmt.Println(low)
 			} else {
 				fmt.Println(high)
