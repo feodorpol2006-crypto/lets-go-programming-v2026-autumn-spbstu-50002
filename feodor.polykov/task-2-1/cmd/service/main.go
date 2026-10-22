@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
-	"io"
+	"os"
+	"strconv"
+	"strings"
 )
 
 const (
@@ -14,25 +17,27 @@ const (
 var ErrUnknownOperator = errors.New("unknown operator")
 
 func main() {
-	if err := run(); err != nil && !errors.Is(err, io.EOF) {
+	if err := run(); err != nil {
 		fmt.Printf("Execution error: %v\n", err)
+		os.Exit(1)
 	}
 }
 
 func run() error {
-	var departments int
-	var employees int
+	scanner := bufio.NewScanner(os.Stdin)
 
-	if _, err := fmt.Scan(&departments); err != nil {
+	departments, err := readInt(scanner)
+	if err != nil {
 		return fmt.Errorf("failed to read number of departments: %w", err)
 	}
 
-	if _, err := fmt.Scan(&employees); err != nil {
+	employees, err := readInt(scanner)
+	if err != nil {
 		return fmt.Errorf("failed to read number of employees: %w", err)
 	}
 
 	for departmentIndex := 0; departmentIndex < departments; departmentIndex++ {
-		if err := processDepartment(employees); err != nil {
+		if err := processDepartment(scanner, employees); err != nil {
 			return fmt.Errorf("error in department %d: %w", departmentIndex+1, err)
 		}
 	}
@@ -40,7 +45,29 @@ func run() error {
 	return nil
 }
 
-func processDepartment(employees int) error {
+func readInt(scanner *bufio.Scanner) (int, error) {
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+
+		val, err := strconv.Atoi(line)
+		if err != nil {
+			return 0, fmt.Errorf("invalid integer: %w", err)
+		}
+
+		return val, nil
+	}
+
+	if err := scanner.Err(); err != nil {
+		return 0, fmt.Errorf("scanner error: %w", err)
+	}
+
+	return 0, errors.New("unexpected end of input")
+}
+
+func processDepartment(scanner *bufio.Scanner, employees int) error {
 	low := MinTemp
 	high := MaxTemp
 
@@ -49,8 +76,20 @@ func processDepartment(employees int) error {
 
 		var value int
 
-		if _, err := fmt.Scan(&operator, &value); err != nil {
-			return fmt.Errorf("failed to read employee preference: %w", err)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" {
+				continue
+			}
+
+			var err error
+
+			operator, value, err = parseConstraint(line)
+			if err != nil {
+				return fmt.Errorf("failed to parse preference: %w", err)
+			}
+
+			break
 		}
 
 		switch operator {
@@ -66,14 +105,37 @@ func processDepartment(employees int) error {
 			return fmt.Errorf("%w: '%s'", ErrUnknownOperator, operator)
 		}
 
-		if low > high {
+		switch {
+		case low > high:
 			fmt.Println("-1")
-		} else if operator == ">=" {
+		case operator == ">=":
 			fmt.Println(low)
-		} else {
+		default:
 			fmt.Println(high)
 		}
 	}
 
 	return nil
+}
+
+func parseConstraint(line string) (string, int, error) {
+	if strings.HasPrefix(line, ">=") {
+		val, err := strconv.Atoi(strings.TrimSpace(line[2:]))
+		if err != nil {
+			return "", 0, fmt.Errorf("invalid integer in '%s': %w", line, err)
+		}
+
+		return ">=", val, nil
+	}
+
+	if strings.HasPrefix(line, "<=") {
+		val, err := strconv.Atoi(strings.TrimSpace(line[2:]))
+		if err != nil {
+			return "", 0, fmt.Errorf("invalid integer in '%s': %w", line, err)
+		}
+
+		return "<=", val, nil
+	}
+
+	return "", 0, fmt.Errorf("unknown operator: %s", line)
 }
