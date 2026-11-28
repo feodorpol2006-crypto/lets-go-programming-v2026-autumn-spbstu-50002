@@ -4,8 +4,8 @@ import (
 	"flag"
 	"sort"
 
-	"github.com/feodor.polykov/task-3/internal/config"
-	"github.com/feodor.polykov/task-3/internal/currency"
+	"github.com/feodorpol2006-crypto/task-3/internal/config"
+	"github.com/feodorpol2006-crypto/task-3/internal/currency"
 )
 
 func main() {

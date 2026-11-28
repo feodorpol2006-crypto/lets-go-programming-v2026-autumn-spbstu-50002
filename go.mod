@@ -1,9 +1,10 @@
-module github.com/feodor.polykov/task-3
+module github.com/feodorpol2006-crypto/task-3
 
-go 1.27.1
+go 1.22
 
 require (
-	golang.org/x/net v0.63.0 // indirect
-	golang.org/x/text v0.44.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
+	golang.org/x/net v0.63.0
+	gopkg.in/yaml.v3 v3.0.1
 )
+
+require golang.org/x/text v0.44.0 // indirect
